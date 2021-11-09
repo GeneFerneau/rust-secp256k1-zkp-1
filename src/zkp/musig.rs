@@ -12,17 +12,17 @@
 ///! in [C-musig.md](secp256k1-sys/depend/secp256k1/src/modules/musig/musig.md), and Rust API
 ///! usage can be found in [Rust-musig.md](USAGE.md).
 use ffi::{self, CPtr};
-use schnorrsig;
+use schnorr;
 use Error;
 use Signing;
-use {Message, PublicKey, Secp256k1, SecretKey};
+use {KeyPair, Message, PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
 
 ///  Data structure containing auxiliary data generated in `pubkey_agg` and
 ///  required for `session_*_init`.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct MusigPreSession {
     inner: ffi::MusigKeyaggCache,
-    agg_pk: schnorrsig::PublicKey,
+    agg_pk: XOnlyPublicKey,
 }
 
 impl CPtr for MusigPreSession {
@@ -61,15 +61,14 @@ impl MusigPreSession {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{MusigPreSession, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, MusigPreSession, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key.clone());
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key.clone());
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let _pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// ```
-    pub fn new<C: Signing>(secp: &Secp256k1<C>, pubkeys: &[schnorrsig::PublicKey]) -> Result<Self, Error> {
+    pub fn new<C: Signing>(secp: &Secp256k1<C>, pubkeys: &[XOnlyPublicKey]) -> Result<Self, Error> {
         let cx = *secp.ctx();
         let xonly_ptrs = pubkeys
             .iter()
@@ -78,7 +77,7 @@ impl MusigPreSession {
         let mut keyagg_cache = ffi::MusigKeyaggCache::new();
 
         unsafe {
-            let mut agg_pk = schnorrsig::PublicKey::from(ffi::XOnlyPublicKey::new());
+            let mut agg_pk = XOnlyPublicKey::from(ffi::XOnlyPublicKey::new());
             if ffi::secp256k1_musig_pubkey_agg(
                 cx,
                 // FIXME: passing null pointer to ScratchSpace uses less efficient algorithm
@@ -124,12 +123,11 @@ impl MusigPreSession {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{MusigPreSession, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, MusigPreSession, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key.clone());
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key.clone());
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let mut pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let _pubkey = pre_session.pubkey_tweak_add(&secp, &[2; 32]).unwrap();
     /// ```
@@ -182,12 +180,11 @@ impl MusigPreSession {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigPreSession, PublicKey, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigPreSession, PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let id = [2; 32];
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
@@ -239,12 +236,11 @@ impl MusigPreSession {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigAggNonce, MusigPreSession, MusigSession, PublicKey, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigAggNonce, MusigPreSession, MusigSession, PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     /// let id = [1; 32];
@@ -287,7 +283,7 @@ impl MusigPreSession {
     }
 
     /// Get a const reference to the aggregated public key
-    pub fn agg_pk(&self) -> &schnorrsig::PublicKey {
+    pub fn agg_pk(&self) -> &XOnlyPublicKey {
         &self.agg_pk
     }
 
@@ -330,12 +326,11 @@ impl MusigPartialSignature {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigAggNonce, MusigPreSession, MusigSession, PublicKey, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigAggNonce, MusigPreSession, MusigSession, PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     /// let id = [2; 32];
@@ -384,14 +379,11 @@ impl MusigPartialSignature {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{
-    /// #   Message, MusigAggNonce, MusigPartialSignature, MusigPreSession, MusigSession, Secp256k1, SecretKey,
-    /// # };
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigAggNonce, MusigPartialSignature, MusigPreSession, MusigSession, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     /// let id = [2; 32];
@@ -450,12 +442,11 @@ impl MusigPartialSignature {
 /// Example:
 ///
 /// ```rust
-/// # use secp256k1_zkp::{adapt, Message, MusigAggNonce, MusigPreSession, MusigSession, PublicKey, Secp256k1, SecretKey};
-/// # use secp256k1_zkp::schnorrsig;
+/// # use secp256k1_zkp::{adapt, KeyPair, Message, MusigAggNonce, MusigPreSession, MusigSession, PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
 /// let secp = Secp256k1::new();
 /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-/// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-/// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+/// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+/// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
 /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
 /// let msg = Message::from_slice(&[3; 32]).unwrap();
 /// let id = [2; 32];
@@ -486,10 +477,10 @@ impl MusigPartialSignature {
 /// ```
 pub fn adapt<C: Signing>(
     secp: &Secp256k1<C>,
-    pre_sig: &schnorrsig::Signature,
+    pre_sig: &schnorr::Signature,
     sec_adaptor: &SecretKey,
     nonce_parity: i32,
-) -> Result<schnorrsig::Signature, Error> {
+) -> Result<schnorr::Signature, Error> {
     unsafe {
         let mut sig = pre_sig.clone();
         if ffi::secp256k1_musig_adapt(
@@ -501,7 +492,7 @@ pub fn adapt<C: Signing>(
         {
             Err(Error::InvalidMusigPartSig)
         } else {
-            Ok(schnorrsig::Signature::from_slice(sig.as_ref())?)
+            Ok(schnorr::Signature::from_slice(sig.as_ref())?)
         }
     }
 }
@@ -516,12 +507,11 @@ pub fn adapt<C: Signing>(
 ///
 /// ```rust
 /// # use secp256k1_zkp::{adapt, extract_adaptor};
-/// # use secp256k1_zkp::{Message, MusigAggNonce, MusigPreSession, MusigSession, PublicKey, Secp256k1, SecretKey};
-/// # use secp256k1_zkp::schnorrsig;
+/// # use secp256k1_zkp::{KeyPair, Message, MusigAggNonce, MusigPreSession, MusigSession, PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
 /// let secp = Secp256k1::new();
 /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-/// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-/// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+/// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+/// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
 /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
 /// let msg = Message::from_slice(&[3; 32]).unwrap();
 ///
@@ -560,8 +550,8 @@ pub fn adapt<C: Signing>(
 /// ```
 pub fn extract_adaptor<C: Signing>(
     secp: &Secp256k1<C>,
-    sig: &schnorrsig::Signature,
-    pre_sig: &schnorrsig::Signature,
+    sig: &schnorr::Signature,
+    pre_sig: &schnorr::Signature,
     nonce_parity: i32,
 ) -> Result<SecretKey, Error> {
     unsafe {
@@ -639,12 +629,11 @@ impl MusigPubNonce {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigPreSession, MusigPubNonce, PublicKey, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigPreSession, MusigPubNonce, PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     /// let id = [2; 32];
@@ -673,12 +662,11 @@ impl MusigPubNonce {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigPreSession, MusigPubNonce, PublicKey, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigPreSession, MusigPubNonce, PublicKey, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     /// let id = [2; 32];
@@ -749,12 +737,11 @@ impl MusigAggNonce {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigAggNonce, MusigPreSession, MusigPubNonce, MusigSession, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigAggNonce, MusigPreSession, MusigPubNonce, MusigSession, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     ///
@@ -785,12 +772,11 @@ impl MusigAggNonce {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigAggNonce, MusigPreSession, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigAggNonce, MusigPreSession, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     /// let id = [2; 32];
@@ -820,12 +806,11 @@ impl MusigAggNonce {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigAggNonce, MusigPreSession, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigAggNonce, MusigPreSession, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     /// let id = [2; 32];
@@ -903,12 +888,11 @@ impl MusigSession {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigAggNonce, MusigPreSession, MusigSession, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigAggNonce, MusigPreSession, MusigSession, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     ///
@@ -933,7 +917,7 @@ impl MusigSession {
         &self,
         secp: &Secp256k1<C>,
         secnonce: &mut MusigSecNonce,
-        keypair: &schnorrsig::KeyPair,
+        keypair: &KeyPair,
         pre_session: &MusigPreSession,
     ) -> Result<MusigPartialSignature, Error> {
         unsafe {
@@ -976,12 +960,11 @@ impl MusigSession {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigAggNonce, MusigPreSession, MusigSession, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigAggNonce, MusigPreSession, MusigSession, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let mut pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     /// let id = [2; 32];
@@ -1015,7 +998,7 @@ impl MusigSession {
         secp: &Secp256k1<C>,
         partial_sig: &MusigPartialSignature,
         pubnonce: &MusigPubNonce,
-        pubkey: &schnorrsig::PublicKey,
+        pubkey: &XOnlyPublicKey,
         pre_session: &MusigPreSession,
     ) -> bool {
         let cx = *secp.ctx();
@@ -1036,12 +1019,11 @@ impl MusigSession {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigAggNonce, MusigPreSession, MusigSession, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigAggNonce, MusigPreSession, MusigSession, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     /// let id = [2; 32];
@@ -1067,7 +1049,7 @@ impl MusigSession {
         &self,
         secp: &Secp256k1<C>,
         partial_sigs: &[MusigPartialSignature],
-    ) -> Result<schnorrsig::Signature, Error> {
+    ) -> Result<schnorr::Signature, Error> {
         let part_sigs = partial_sigs.iter().map(|s| s.as_ptr()).collect::<Vec<_>>();
         let mut sig = [0u8; 64];
         unsafe {
@@ -1081,7 +1063,7 @@ impl MusigSession {
             {
                 Err(Error::InvalidMusigPartSig)
             } else {
-                Ok(schnorrsig::Signature::from_slice(&sig)?)
+                Ok(schnorr::Signature::from_slice(&sig)?)
             }
         }
     }
@@ -1093,12 +1075,11 @@ impl MusigSession {
     /// Example:
     ///
     /// ```rust
-    /// # use secp256k1_zkp::{Message, MusigAggNonce, MusigPreSession, MusigSession, Secp256k1, SecretKey};
-    /// # use secp256k1_zkp::schnorrsig;
+    /// # use secp256k1_zkp::{KeyPair, Message, MusigAggNonce, MusigPreSession, MusigSession, Secp256k1, SecretKey, XOnlyPublicKey};
     /// let secp = Secp256k1::new();
     /// let sec_key = SecretKey::from_slice([1; 32].as_ref()).unwrap();
-    /// let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-    /// let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+    /// let keypair = KeyPair::from_secret_key(&secp, sec_key);
+    /// let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
     /// let pre_session = MusigPreSession::new(&secp, &[pub_key]).unwrap();
     /// let msg = Message::from_slice(&[3; 32]).unwrap();
     /// let id = [2; 32];
@@ -1148,8 +1129,8 @@ mod tests {
         let mut sec_bytes = [0; 32];
         thread_rng().fill_bytes(&mut sec_bytes);
         let sec_key = SecretKey::from_slice(&sec_bytes).unwrap();
-        let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-        let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+        let keypair = KeyPair::from_secret_key(&secp, sec_key);
+        let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
 
         let _pre_session = MusigPreSession::new(&secp, &[pub_key, pub_key]).unwrap();
     }
@@ -1160,8 +1141,8 @@ mod tests {
         let mut sec_bytes = [0; 32];
         thread_rng().fill_bytes(&mut sec_bytes);
         let sec_key = SecretKey::from_slice(&sec_bytes).unwrap();
-        let keypair = schnorrsig::KeyPair::from_secret_key(&secp, sec_key);
-        let pub_key = schnorrsig::PublicKey::from_keypair(&secp, &keypair);
+        let keypair = KeyPair::from_secret_key(&secp, sec_key);
+        let pub_key = XOnlyPublicKey::from_keypair(&secp, &keypair);
 
         let pre_session = MusigPreSession::new(&secp, &[pub_key, pub_key]).unwrap();
         let msg = Message::from_slice(&[3; 32]).unwrap();
